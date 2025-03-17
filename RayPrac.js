@@ -1,41 +1,31 @@
-class Vec3 {
+document.addEventListener('DOMContentLoaded', function() {
+    class Vec3 {
     constructor(x, y, z) {
         this.x = x;
         this.y = y;
         this.z = z;
     }
 
-    // Add another vector to this one
     add(other) {
         return new Vec3(this.x + other.x, this.y + other.y, this.z + other.z);
     }
 
-    // Subtract another vector from this one
     minus(other) {
         return new Vec3(this.x - other.x, this.y - other.y, this.z - other.z);
     }
 
-    // Multiply this vector by another vector component-wise
     multiply(other) {
         return new Vec3(this.x * other.x, this.y * other.y, this.z * other.z);
     }
 
-    // Scale this vector by a scalar
     scale(scalar) {
         return new Vec3(this.x * scalar, this.y * scalar, this.z * scalar);
     }
 
-    // Calculate the dot product with another vector
     dot(other) {
         return this.x * other.x + this.y * other.y + this.z * other.z;
     }
 
-    // Calculate the magnitude of this vector
-    magnitude() {
-        return Math.sqrt(this.magnitudeSquared());
-    }
-
-    // Calculate the squared magnitude (avoiding the costly square root)
     magnitudeSquared() {
         return this.x * this.x + this.y * this.y + this.z * this.z;
     }
@@ -62,5 +52,13 @@ function testVec3() {
     console.log("Normalized v1:", v1.normalised());
 }
 
-testVec3();
+// Example test
+let ball = new Vec3(3, 4, 0);
+let lineStart = new Vec3(0, 0, 0);
+let lineEnd = new Vec3(6, 0, 0);
 
+console.log("Ball-Line Distance Squared:", ballLineDistanceSquared(ball, lineStart, lineEnd));
+
+document.body.innerHTML += `<p>Ball-Line Distance Squared: ${ballLineDistanceSquared(ball, lineStart, lineEnd)}</p>`;
+
+});
