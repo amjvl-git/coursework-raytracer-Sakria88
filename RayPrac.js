@@ -198,15 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));
         let shadowRay = new Ray(shadowRayOrigin, negLightDirection);
 
-        let inShadow = false;
-        for (let i = 0; i < spheres.length; i++) {
-            if (i !== castResult.sphereIndex && spheres[i].rayIntersects(shadowRay) > 0) {
-                inShadow = true;
-                break;
-            }
-        }
-
-        let diffuse = inShadow ? 0 : Math.max(castResult.normal.dot(negLightDirection), 0);
+        let diffuse = Math.max(castResult.normal.dot(negLightDirection), 0);
         let colour = albedo.scale(diffuse + ambient);
 
         return colour;
@@ -222,14 +214,22 @@ document.addEventListener('DOMContentLoaded', function () {
         ctx.putImageData(imageData, x, y);
     }
 
-    function drawScene(deltaTime) {
+    function drawScene() {
         let ctx = canvas.getContext("2d");
-        updateBlueSphere(deltaTime);
+        updateBlueSphere(1 / 60);
 
-        requestAnimationFrame(() => drawScene(1 / 60));
+        for (let j = 0; j < canvas.height; j++) {
+            for (let i = 0; i < canvas.width; i++) {
+                let ray = new Ray(new Vec3(0, 0, 0), new Vec3(i / canvas.width * 2 - 1, 1 - j / canvas.height * 2, -1));
+                let color = rayColor(ray);
+                setPixel(i, j, color, ctx);
+            }
+        }
+
+        requestAnimationFrame(drawScene);
     }
 
-    drawScene(1 / 60);
+    drawScene();
 });
 
 
