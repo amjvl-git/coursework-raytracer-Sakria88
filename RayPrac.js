@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return mag === 0 ? new Vec3(0, 0, 0) : this.scale(1 / mag);
         }
 
-        // Y-Axis Rotation
+        // Rotation around the Y-axis
         rotateY(angle) {
             let cos = Math.cos(angle);
             let sin = Math.sin(angle);
@@ -80,14 +80,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
+    // Initialize spheres
     const spheres = [
-        new Sphere(new Vec3(0, 0, -1), 0.4, new Vec3(1, 0, 0)),    // Red sphere
-        new Sphere(new Vec3(0.7, -0.2, -1.5), 0.2, new Vec3(0, 0, 1)),  // Blue sphere
-        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0))   // Green ground
+        new Sphere(new Vec3(0.7, 0, -1), 0.2, new Vec3(1, 0, 0)),  // Red sphere
+        new Sphere(new Vec3(-0.7, 0, -1), 0.2, new Vec3(0, 0, 1)), // Blue sphere
+        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0))  // Ground
     ];
 
-    let lightDirection = new Vec3(-1.1, -1.3, -1.5).normalised();
     let angle = 0;
+    let lightAngle = 0;
 
     function traceRay(ray) {
         let closestT = Infinity;
@@ -106,8 +107,13 @@ document.addEventListener('DOMContentLoaded', function () {
         let hitPoint = ray.pointAt(closestT);
         let normal = hitPoint.minus(closestSphere.center).normalised();
 
-        // Lighting calculations
-        let lightDir = lightDirection.normalised();
+        // Lighting
+        let lightDir = new Vec3(
+            Math.cos(lightAngle) * 1.5, 
+            -1.3, 
+            Math.sin(lightAngle) * 1.5
+        ).normalised();
+
         let diffuse = Math.max(normal.dot(lightDir), 0);
         let color = closestSphere.color.scale(diffuse).add(closestSphere.color.scale(0.2));  // Add ambient
 
@@ -130,9 +136,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let origin = new Vec3(0, 0, 0);
 
-        // Rotate the first sphere
-        angle += 0.02;  // Rotation speed
-        spheres[0].center = new Vec3(0, 0, -1).rotateY(angle);
+        // Rotate the spheres around each other
+        let orbitRadius = 0.8;
+        let speed = 0.05;  // Increased speed
+
+        angle += speed;  // Rotate faster
+
+        // Red sphere orbits clockwise
+        spheres[0].center = new Vec3(
+            Math.cos(angle) * orbitRadius,
+            0,
+            Math.sin(angle) * orbitRadius - 1
+        );
+
+        // Blue sphere orbits counter-clockwise
+        spheres[1].center = new Vec3(
+            Math.cos(-angle) * orbitRadius,
+            0,
+            Math.sin(-angle) * orbitRadius - 1
+        );
+
+        // Lighting follows the rotation
+        lightAngle += speed * 0.8;  // Sync lighting speed
 
         for (let j = 0; j < height; j++) {
             for (let i = 0; i < width; i++) {
