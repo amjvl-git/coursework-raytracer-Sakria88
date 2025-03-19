@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const spheres = [
         new Sphere(new Vec3(0, 0, -1), 0.3, new Vec3(1, 0, 0)),   // Red sphere (stationary)
         new Sphere(new Vec3(0.5, 0.2, -1), 0.15, new Vec3(0, 0, 1)), // Blue sphere (movable)
-        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0)) // Green ground
+        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0))  // Green ground
     ];
 
     // Light direction
@@ -113,14 +113,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // Mouse variables
     let isDragging = false;
     let targetPosition = spheres[1].center;
-    let animationProgress = 1;  // Starts fully complete
+    let animationProgress = 1;
 
-    const moveSpeed = 0.3;  // Faster movement: 0.3 seconds
+    const moveSpeed = 0.3;  // Movement speed (0.3 seconds)
+    const orbitRadius = 1.0;  // Increased orbit radius
 
     const canvas = document.getElementById("canvas");
 
     canvas.addEventListener('mousedown', (event) => {
-        if (event.button === 0) {  // Left mouse button
+        if (event.button === 0) {
             isDragging = true;
         }
     });
@@ -136,16 +137,14 @@ document.addEventListener('DOMContentLoaded', function () {
             let y = 1 - ((event.clientY - rect.top) / canvas.height) * 2;
 
             let newX = x * (canvas.width / canvas.height);
-            let newZ = -1;
+            let newZ = y;  // Now allowing movement in Z-axis (depth)
 
-            // Keep the blue sphere orbiting around the red sphere
             let redCenter = spheres[0].center;
             let distX = newX - redCenter.x;
             let distZ = newZ - redCenter.z;
 
             let distance = Math.sqrt(distX * distX + distZ * distZ);
 
-            let orbitRadius = 0.6;  // Radius around the red sphere
             if (distance > orbitRadius) {
                 let scale = orbitRadius / distance;
                 newX = redCenter.x + distX * scale;
@@ -191,22 +190,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (castResult.t < 0) return backgroundColour(ray);
 
         let albedo = spheres[castResult.sphereIndex].color;
-
-        // Lighting
         let ambient = 0.2;
 
-        let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));
-        let shadowRay = new Ray(shadowRayOrigin, negLightDirection);
-
-        let inShadow = false;
-        for (let i = 0; i < spheres.length; i++) {
-            if (i !== castResult.sphereIndex && spheres[i].rayIntersects(shadowRay) > 0) {
-                inShadow = true;
-                break;
-            }
-        }
-
-        let diffuse = inShadow ? 0 : Math.max(castResult.normal.dot(negLightDirection), 0);
+        let diffuse = Math.max(castResult.normal.dot(negLightDirection), 0);
         let colour = albedo.scale(diffuse + ambient);
 
         return colour;
@@ -228,8 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         for (let j = 0; j < canvas.height; j++) {
             for (let i = 0; i < canvas.width; i++) {
-                let direction = new Vec3(i / canvas.width * 2 - 1, 1 - j / canvas.height * 2, -1).normalised();
-                let ray = new Ray(new Vec3(0, 0, 0), direction);
+                let ray = new Ray(new Vec3(0, 0, 0), new Vec3(i / canvas.width * 2 - 1, 1 - j / canvas.height * 2, -1).normalised());
                 let color = rayColor(ray);
                 setPixel(i, j, color, ctx);
             }
@@ -240,5 +225,3 @@ document.addEventListener('DOMContentLoaded', function () {
 
     drawScene(1 / 60);
 });
-
-
