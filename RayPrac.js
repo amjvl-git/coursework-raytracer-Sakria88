@@ -27,27 +27,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         magnitude() {
-            return Math.sqrt(this.magnitudeSquared());
-        }
-
-        magnitudeSquared() {
-            return this.x * this.x + this.y * this.y + this.z * this.z;
+            return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
         }
 
         normalised() {
             let mag = this.magnitude();
             return mag === 0 ? new Vec3(0, 0, 0) : this.scale(1 / mag);
         }
-    }
 
-    class Ray {
-        constructor(origin, direction) {
-            this.origin = origin;
-            this.direction = direction.normalised();
-        }
-
-        pointAt(t) {
-            return this.origin.add(this.direction.scale(t));
+        rotateY(angle) {
+            let cos = Math.cos(angle);
+            let sin = Math.sin(angle);
+            return new Vec3(
+                this.x * cos - this.z * sin,
+                this.y,
+                this.x * sin + this.z * cos
+            );
         }
     }
 
@@ -74,41 +69,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    class RayCastResult {
-        constructor(position, normal, t, sphereIndex) {
-            this.position = position;
-            this.normal = normal;
-            this.t = t;
-            this.sphereIndex = sphereIndex;
-        }
-    }
-
-    function rayHit(ray, t, sphereIndex) {
-        let intersectionPoint = ray.pointAt(t);
-        let intersectionNormal = intersectionPoint.minus(spheres[sphereIndex].center).normalised();
-        return new RayCastResult(intersectionPoint, intersectionNormal, t, sphereIndex);
-    }
-
-    function miss() {
-        return new RayCastResult(new Vec3(0, 0, 0), new Vec3(0, 0, 0), -1, -1);
-    }
-
-    function backgroundColour(ray) {
-        let white = new Vec3(1, 1, 1);
-        let blue = new Vec3(0.3, 0.5, 0.9);
-        let t = 0.5 * (ray.direction.y + 1.0);
-        return white.scale(1 - t).add(blue.scale(t));
-    }
-
     const spheres = [
         new Sphere(new Vec3(0, 0, -1), 0.3, new Vec3(1, 0, 0)),   // Red sphere
         new Sphere(new Vec3(0, 0.2, -0.8), 0.15, new Vec3(0, 0, 1)), // Blue sphere
         new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0)) // Green ground
     ];
 
-    // Global light direction
     let lightDirection = new Vec3(-1.1, -1.3, -1.5).normalised();
-    let negLightDirection = new Vec3(-lightDirection.x, -lightDirection.y, -lightDirection.z);
+    let angle = 0;
 
     function traceRay(ray) {
         let closestT = Infinity;
@@ -122,47 +90,18 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        if (closestSphereIndex === -1) return miss();
+        if (closestSphereIndex === -1) return new Vec3(0.5, 0.7, 1.0);  // Background color
 
-        return rayHit(ray, closestT, closestSphereIndex);
-    }
+        let hitSphere = spheres[closestSphereIndex];
+        let hitPoint = ray.origin.add(ray.direction.scale(closestT));
+        let normal = hitPoint.minus(hitSphere.center).normalised();
 
-    function rayColor(ray) {
-        let castResult = traceRay(ray);
+        // Lighting
+        let lightDir = lightDirection.normalised();
+        let diffuse = Math.max(normal.dot(lightDir), 0);
+        let color = hitSphere.color.scale(diffuse).add(hitSphere.color.scale(0.2));  // Add ambient light
 
-        if (castResult.t < 0) return backgroundColour(ray);
-
-        let albedo = spheres[castResult.sphereIndex].color;
-
-        // Ambient lighting
-        let ambient = 0.2;
-
-        // Shadow ray logic
-        let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));  // Offset to prevent self-shadowing
-        let shadowRay = new Ray(shadowRayOrigin, negLightDirection);
-
-        let inShadow = false;
-        for (let i = 0; i < spheres.length; i++) {
-            if (i !== castResult.sphereIndex && spheres[i].rayIntersects(shadowRay) > 0) {
-                inShadow = true;
-                break;
-            }
-        }
-
-        // Diffuse lighting (disabled if in shadow)
-        let diffuse = inShadow ? 0 : Math.max(castResult.normal.dot(negLightDirection), 0);
-
-        // Specular lighting
-        let reflection = negLightDirection.minus(
-            castResult.normal.scale(2 * negLightDirection.dot(castResult.normal))
-        ).normalised();
-        let viewDir = ray.direction.scale(-1);
-        let specular = inShadow ? 0 : Math.pow(Math.max(reflection.dot(viewDir), 0), 32);
-
-        // Final color calculation
-        let colour = albedo.scale(diffuse + ambient).add(new Vec3(1, 1, 1).scale(specular * 0.5));
-
-        return colour;
+        return color;
     }
 
     function setPixel(x, y, color, ctx) {
@@ -184,26 +123,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let origin = new Vec3(0, 0, 0);
 
-        function renderLine(j) {
+        // Rotate the sphere position
+        angle += 0.02;  // Adjust rotation speed
+        spheres[0].center = new Vec3(0, 0, -1).rotateY(angle);
+
+        for (let j = 0; j < imageHeight; j++) {
             for (let i = 0; i < imageWidth; i++) {
                 let u = (i / (imageWidth - 1)) * 2 - 1;
                 let v = (1 - j / (imageHeight - 1)) * 2 - 1;
 
-                u *= imageWidth / imageHeight;  // Correct for aspect ratio
+                u *= imageWidth / imageHeight;  // Aspect ratio correction
 
                 let direction = new Vec3(u, v, -1).normalised();
                 let ray = new Ray(origin, direction);
-                let color = rayColor(ray);
+                let color = traceRay(ray);
 
                 setPixel(i, j, color, ctx);
             }
-
-            if (j < imageHeight - 1) {
-                requestAnimationFrame(() => renderLine(j + 1));
-            }
         }
 
-        renderLine(0);
+        requestAnimationFrame(drawScene);
     }
 
     drawScene();
