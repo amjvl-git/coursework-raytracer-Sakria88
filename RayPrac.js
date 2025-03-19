@@ -14,29 +14,37 @@ document.addEventListener('DOMContentLoaded', function () {
             return new Vec3(this.x - other.x, this.y - other.y, this.z - other.z);
         }
 
-        multiply(other) {
-            return new Vec3(this.x * other.x, this.y * other.y, this.z * other.z);
-        }
-
         scale(scalar) {
             return new Vec3(this.x * scalar, this.y * scalar, this.z * scalar);
+        }
+
+        multiply(other) {
+            return new Vec3(this.x * other.x, this.y * other.y, this.z * other.z);
         }
 
         dot(other) {
             return this.x * other.x + this.y * other.y + this.z * other.z;
         }
 
-        magnitude() {
-            return Math.sqrt(this.magnitudeSquared());
-        }
-
-        magnitudeSquared() {
-            return this.x * this.x + this.y * this.y + this.z * this.z;
-        }
-
         normalised() {
-            let mag = this.magnitude();
+            let mag = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
             return mag === 0 ? new Vec3(0, 0, 0) : this.scale(1 / mag);
+        }
+
+        clamp(min, max) {
+            return new Vec3(
+                Math.min(max, Math.max(min, this.x)),
+                Math.min(max, Math.max(min, this.y)),
+                Math.min(max, Math.max(min, this.z))
+            );
+        }
+
+        gammaCorrect() {
+            return new Vec3(
+                Math.pow(this.x, 1 / 2.2),
+                Math.pow(this.y, 1 / 2.2),
+                Math.pow(this.z, 1 / 2.2)
+            );
         }
     }
 
@@ -70,108 +78,85 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (t1 > 0) return t1;
                 if (t2 > 0) return t2;
             }
-            return -1;  // No hit
+            return -1;
         }
-    }
-
-    class RayCastResult {
-        constructor(position, normal, t, sphereIndex) {
-            this.position = position;
-            this.normal = normal;
-            this.t = t;
-            this.sphereIndex = sphereIndex;
-        }
-    }
-
-    function rayHit(ray, t, sphereIndex) {
-        let intersectionPoint = ray.pointAt(t);
-        let intersectionNormal = intersectionPoint.minus(spheres[sphereIndex].center).normalised();
-        return new RayCastResult(intersectionPoint, intersectionNormal, t, sphereIndex);
-    }
-
-    function miss() {
-        return new RayCastResult(new Vec3(0, 0, 0), new Vec3(0, 0, 0), -1, -1);
     }
 
     function backgroundColour(ray) {
         let white = new Vec3(1, 1, 1);
-        let blue = new Vec3(0.3, 0.5, 0.9);
+        let blue = new Vec3(0.5, 0.7, 1.0);  // More vibrant background
         let t = 0.5 * (ray.direction.y + 1.0);
         return white.scale(1 - t).add(blue.scale(t));
     }
 
+    // 🎯 Spheres with vivid pink and purple colors
     const spheres = [
-        new Sphere(new Vec3(0, 0, -1), 0.3, new Vec3(1, 0, 0)),   // Red sphere
-        new Sphere(new Vec3(0, 0.2, -0.8), 0.15, new Vec3(0, 0, 1)), // Blue sphere
-        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0)) // Green ground
+        new Sphere(new Vec3(0, 0, -1), 0.3, new Vec3(1, 0, 0.6)),    // Pink sphere
+        new Sphere(new Vec3(0, 0.2, -0.8), 0.15, new Vec3(0.5, 0, 1)),  // Purple sphere
+        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0))    // Green ground
     ];
 
-    // Global light direction
-    let lightDirection = new Vec3(-1.1, -1.3, -1.5).normalised();
-    let negLightDirection = new Vec3(-lightDirection.x, -lightDirection.y, -lightDirection.z);
+    let lightDirection = new Vec3(-1, -1, -1).normalised();
 
     function traceRay(ray) {
         let closestT = Infinity;
-        let closestSphereIndex = -1;
+        let closestSphere = null;
 
-        for (let i = 0; i < spheres.length; i++) {
-            let t = spheres[i].rayIntersects(ray);
+        for (let sphere of spheres) {
+            let t = sphere.rayIntersects(ray);
             if (t > 0 && t < closestT) {
                 closestT = t;
-                closestSphereIndex = i;
+                closestSphere = sphere;
             }
         }
 
-        if (closestSphereIndex === -1) return miss();
+        if (!closestSphere) return backgroundColour(ray);
 
-        return rayHit(ray, closestT, closestSphereIndex);
-    }
+        let hitPoint = ray.pointAt(closestT);
+        let normal = hitPoint.minus(closestSphere.center).normalised();
 
-    function rayColor(ray) {
-        let castResult = traceRay(ray);
+        // ✅ Base color without interference
+        let baseColor = closestSphere.color;
 
-        if (castResult.t < 0) return backgroundColour(ray);
+        // 🌟 Lighting
+        let ambient = 0.1;  // Low ambient for better color contrast
+        let diffuse = Math.max(0, normal.dot(lightDirection));
 
-        let albedo = spheres[castResult.sphereIndex].color;
-
-        // Ambient lighting
-        let ambient = 0.2;
-
-        // Shadow ray logic
-        let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));  // Offset to prevent self-shadowing
-        let shadowRay = new Ray(shadowRayOrigin, negLightDirection);
-
+        // 🌑 Shadow ray logic
+        let shadowRayOrigin = hitPoint.add(normal.scale(0.001));
+        let shadowRay = new Ray(shadowRayOrigin, lightDirection);
         let inShadow = false;
-        for (let i = 0; i < spheres.length; i++) {
-            if (i !== castResult.sphereIndex && spheres[i].rayIntersects(shadowRay) > 0) {
+
+        for (let sphere of spheres) {
+            if (sphere !== closestSphere && sphere.rayIntersects(shadowRay) > 0) {
                 inShadow = true;
                 break;
             }
         }
 
-        // Diffuse lighting (disabled if in shadow)
-        let diffuse = inShadow ? 0 : Math.max(castResult.normal.dot(negLightDirection), 0);
+        if (inShadow) diffuse *= 0.3;
 
-        // Specular lighting
-        let reflection = negLightDirection.minus(
-            castResult.normal.scale(2 * negLightDirection.dot(castResult.normal))
-        ).normalised();
-        let viewDir = ray.direction.scale(-1);
-        let specular = inShadow ? 0 : Math.pow(Math.max(reflection.dot(viewDir), 0), 32);
+        // ✅ Lighting effect with sharp contrast and no color dulling
+        let lightingEffect = new Vec3(diffuse + ambient, diffuse + ambient, diffuse + ambient);
 
-        // Final color calculation
-        let colour = albedo.scale(diffuse + ambient).add(new Vec3(1, 1, 1).scale(specular * 0.5));
+        // ✅ Base color multiplied by lighting without losing vibrancy
+        let finalColor = baseColor.multiply(lightingEffect).clamp(0, 1);
 
-        return colour;
+        // 🔥 Gamma correction and color boost for vibrancy
+        finalColor = finalColor.scale(1.4).clamp(0, 1).gammaCorrect();
+
+        return finalColor;
     }
 
     function setPixel(x, y, color, ctx) {
         let imageData = ctx.createImageData(1, 1);
         let data = imageData.data;
+
         data[0] = Math.floor(color.x * 255);
         data[1] = Math.floor(color.y * 255);
         data[2] = Math.floor(color.z * 255);
-        data[3] = 255;  // Alpha (fully opaque)
+        data[3] = 255;
+
         ctx.putImageData(imageData, x, y);
     }
 
@@ -186,14 +171,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function renderLine(j) {
             for (let i = 0; i < imageWidth; i++) {
-                let u = (i / (imageWidth - 1)) * 2 - 1;
-                let v = (1 - j / (imageHeight - 1)) * 2 - 1;
+                let u = (i / imageWidth) * 2 - 1;
+                let v = (1 - j / imageHeight) * 2 - 1;
 
-                u *= imageWidth / imageHeight;  // Correct for aspect ratio
+                u *= imageWidth / imageHeight;
 
                 let direction = new Vec3(u, v, -1).normalised();
                 let ray = new Ray(origin, direction);
-                let color = rayColor(ray);
+                let color = traceRay(ray);
 
                 setPixel(i, j, color, ctx);
             }
@@ -208,3 +193,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
     drawScene();
 });
+
+
