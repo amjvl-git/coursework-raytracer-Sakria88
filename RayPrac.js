@@ -30,6 +30,14 @@ document.addEventListener('DOMContentLoaded', function () {
             let mag = this.magnitude();
             return mag === 0 ? new Vec3(0, 0, 0) : this.scale(1 / mag);
         }
+
+        lerp(target, t) {
+            return new Vec3(
+                this.x + (target.x - this.x) * t,
+                this.y + (target.y - this.y) * t,
+                this.z + (target.z - this.z) * t
+            );
+        }
     }
 
     class Ray {
@@ -98,56 +106,66 @@ document.addEventListener('DOMContentLoaded', function () {
         new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0)) // Green ground
     ];
 
-    // Global light direction
+    // Light direction
     let lightDirection = new Vec3(-1.1, -1.3, -1.5).normalised();
     let negLightDirection = new Vec3(-lightDirection.x, -lightDirection.y, -lightDirection.z);
 
-    // Movement variables
-    let moveSpeed = 0.1;
-    let keys = { w: false, a: false, s: false, d: false };
+    // Mouse variables
+    let isDragging = false;
+    let targetPosition = spheres[1].center;
+    let animationProgress = 1;  // Starts fully complete
 
-    // Handle keyboard inputs
-    window.addEventListener('keydown', (event) => {
-        if (keys.hasOwnProperty(event.key)) {
-            keys[event.key] = true;
+    const moveSpeed = 1.0;  // 1 second movement time
+
+    const canvas = document.getElementById("canvas");
+
+    canvas.addEventListener('mousedown', (event) => {
+        if (event.button === 0) {  // Left mouse button
+            isDragging = true;
         }
     });
 
-    window.addEventListener('keyup', (event) => {
-        if (keys.hasOwnProperty(event.key)) {
-            keys[event.key] = false;
+    canvas.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    canvas.addEventListener('mousemove', (event) => {
+        if (isDragging) {
+            let rect = canvas.getBoundingClientRect();
+            let x = ((event.clientX - rect.left) / canvas.width) * 2 - 1;
+            let y = 1 - ((event.clientY - rect.top) / canvas.height) * 2;
+
+            let newX = x * (canvas.width / canvas.height);
+            let newZ = -1;
+
+            // Keep the blue sphere orbiting around the red sphere
+            let redCenter = spheres[0].center;
+            let distX = newX - redCenter.x;
+            let distZ = newZ - redCenter.z;
+
+            let distance = Math.sqrt(distX * distX + distZ * distZ);
+
+            let orbitRadius = 0.6;  // Radius around the red sphere
+            if (distance > orbitRadius) {
+                let scale = orbitRadius / distance;
+                newX = redCenter.x + distX * scale;
+                newZ = redCenter.z + distZ * scale;
+            }
+
+            targetPosition = new Vec3(newX, spheres[1].center.y, newZ);
+            animationProgress = 0;  // Reset animation
         }
     });
 
-    function updateBlueSphere() {
-        let dx = 0;
-        let dz = 0;
+    function updateBlueSphere(deltaTime) {
+        if (animationProgress < 1) {
+            animationProgress += deltaTime / moveSpeed;
+            if (animationProgress > 1) {
+                animationProgress = 1;
+            }
 
-        if (keys.w) dz -= moveSpeed;   // Move forward
-        if (keys.s) dz += moveSpeed;   // Move backward
-        if (keys.a) dx -= moveSpeed;   // Move left
-        if (keys.d) dx += moveSpeed;   // Move right
-
-        // Update blue sphere's position around the red sphere
-        let newX = spheres[1].center.x + dx;
-        let newZ = spheres[1].center.z + dz;
-
-        // Keep blue sphere orbiting around the red sphere
-        let redCenter = spheres[0].center;
-        let distX = newX - redCenter.x;
-        let distZ = newZ - redCenter.z;
-
-        let distance = Math.sqrt(distX * distX + distZ * distZ);
-
-        // Constrain the blue sphere to move around the red sphere
-        let radius = 0.6;  // Orbit radius
-        if (distance > radius) {
-            let scale = radius / distance;
-            newX = redCenter.x + distX * scale;
-            newZ = redCenter.z + distZ * scale;
+            spheres[1].center = spheres[1].center.lerp(targetPosition, animationProgress);
         }
-
-        spheres[1].center = new Vec3(newX, spheres[1].center.y, newZ);
     }
 
     function traceRay(ray) {
@@ -174,11 +192,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let albedo = spheres[castResult.sphereIndex].color;
 
-        // Ambient lighting
+        // Lighting
         let ambient = 0.2;
 
-        // Shadow ray logic
-        let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));  
+        let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));
         let shadowRay = new Ray(shadowRayOrigin, negLightDirection);
 
         let inShadow = false;
@@ -189,18 +206,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Diffuse lighting (disabled if in shadow)
         let diffuse = inShadow ? 0 : Math.max(castResult.normal.dot(negLightDirection), 0);
-
-        // Specular lighting
-        let reflection = negLightDirection.minus(
-            castResult.normal.scale(2 * negLightDirection.dot(castResult.normal))
-        ).normalised();
-        let viewDir = ray.direction.scale(-1);
-        let specular = inShadow ? 0 : Math.pow(Math.max(reflection.dot(viewDir), 0), 32);
-
-        // Final color calculation
-        let colour = albedo.scale(diffuse + ambient).add(new Vec3(1, 1, 1).scale(specular * 0.5));
+        let colour = albedo.scale(diffuse + ambient);
 
         return colour;
     }
@@ -215,32 +222,22 @@ document.addEventListener('DOMContentLoaded', function () {
         ctx.putImageData(imageData, x, y);
     }
 
-    function drawScene() {
-        let canvas = document.getElementById("canvas");
+    function drawScene(deltaTime) {
         let ctx = canvas.getContext("2d");
+        updateBlueSphere(deltaTime);
 
-        updateBlueSphere();
-
-        let imageWidth = canvas.width;
-        let imageHeight = canvas.height;
-
-        let origin = new Vec3(0, 0, 0);
-
-        for (let j = 0; j < imageHeight; j++) {
-            for (let i = 0; i < imageWidth; i++) {
-                let u = (i / (imageWidth - 1)) * 2 - 1;
-                let v = (1 - j / (imageHeight - 1)) * 2 - 1;
-
-                let direction = new Vec3(u, v, -1).normalised();
-                let ray = new Ray(origin, direction);
+        for (let j = 0; j < canvas.height; j++) {
+            for (let i = 0; i < canvas.width; i++) {
+                let direction = new Vec3(i / canvas.width * 2 - 1, 1 - j / canvas.height * 2, -1).normalised();
+                let ray = new Ray(new Vec3(0, 0, 0), direction);
                 let color = rayColor(ray);
-
                 setPixel(i, j, color, ctx);
             }
         }
 
-        requestAnimationFrame(drawScene);
+        requestAnimationFrame(() => drawScene(1 / 60));
     }
 
-    drawScene();
+    drawScene(1 / 60);
 });
+
