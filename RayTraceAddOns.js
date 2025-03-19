@@ -1,3 +1,4 @@
+//colour uv in box//
 document.addEventListener('DOMContentLoaded', function() {
     class Vec3 {
         constructor(x, y, z) {
@@ -71,3 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     drawUVCoordinates();
 });
+
+
+
