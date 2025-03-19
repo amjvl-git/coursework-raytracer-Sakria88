@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let targetPosition = spheres[1].center;
     let animationProgress = 1;  // Starts fully complete
 
-    const moveSpeed = 3;  // Faster movement: 3 seconds
+    const moveSpeed = 6;  // Faster movement: 6 seconds
 
     const canvas = document.getElementById("canvas");
 
