@@ -113,12 +113,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Mouse variables
     let isDragging = false;
     let targetPosition = spheres[1].center;
-    let animationProgress = 1;  // Starts fully complete
+    let animationProgress = 1;  // Animation progress starts complete
 
-    const moveSpeed = 0.3;  // Faster movement: 0.3 seconds
+    const moveSpeed = 0.3;  // Movement speed: 0.3 seconds
 
     const canvas = document.getElementById("canvas");
 
+    // Event listeners
     canvas.addEventListener('mousedown', (event) => {
         if (event.button === 0) {  // Left mouse button
             isDragging = true;
@@ -145,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             let distance = Math.sqrt(distX * distX + distZ * distZ);
 
-            let orbitRadius = 0.6;  // Radius around the red sphere
+            let orbitRadius = 0.6;  // Orbit radius around the red sphere
             if (distance > orbitRadius) {
                 let scale = orbitRadius / distance;
                 newX = redCenter.x + distX * scale;
@@ -192,7 +193,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let albedo = spheres[castResult.sphereIndex].color;
 
-        // Lighting
         let ambient = 0.2;
 
         let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));
@@ -225,15 +225,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function drawScene(deltaTime) {
         let ctx = canvas.getContext("2d");
         updateBlueSphere(deltaTime);
-
-        for (let j = 0; j < canvas.height; j++) {
-            for (let i = 0; i < canvas.width; i++) {
-                let direction = new Vec3(i / canvas.width * 2 - 1, 1 - j / canvas.height * 2, -1).normalised();
-                let ray = new Ray(new Vec3(0, 0, 0), direction);
-                let color = rayColor(ray);
-                setPixel(i, j, color, ctx);
-            }
-        }
 
         requestAnimationFrame(() => drawScene(1 / 60));
     }
