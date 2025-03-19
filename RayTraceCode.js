@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let targetPosition = spheres[1].center;
     let animationProgress = 1;  // Starts fully complete
 
-    const moveSpeed = 0.3;  // Faster movement: 0.3 seconds
+    const moveSpeed = 0.1;  // Faster movement: 0.1 seconds
 
     const canvas = document.getElementById("canvas");
 
@@ -138,14 +138,15 @@ document.addEventListener('DOMContentLoaded', function () {
             let newX = x * (canvas.width / canvas.height);
             let newZ = -1;
 
-            // Keep the blue sphere orbiting around the red sphere
+            // Keep the blue orbiting around the red sphere
             let redCenter = spheres[0].center;
             let distX = newX - redCenter.x;
             let distZ = newZ - redCenter.z;
 
             let distance = Math.sqrt(distX * distX + distZ * distZ);
 
-            let orbitRadius = 0.6;  // Radius around the red sphere
+             // Radius around red 
+            let orbitRadius = 0.6; 
             if (distance > orbitRadius) {
                 let scale = orbitRadius / distance;
                 newX = redCenter.x + distX * scale;
