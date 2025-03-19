@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let targetPosition = spheres[1].center;
     let animationProgress = 1;  // Starts fully complete
 
-    const moveSpeed = 1.0;  // 1 second movement time
+    const moveSpeed = 0.3;  // Faster movement: 0.3 seconds
 
     const canvas = document.getElementById("canvas");
 
@@ -240,4 +240,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
     drawScene(1 / 60);
 });
+
 
