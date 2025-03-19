@@ -119,15 +119,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Blue sphere movement function with 6x speed
     function updateBlueSphere() {
         let dx = 0;
         let dz = 0;
 
-        if (keys.w) dz -= moveSpeed * 6;   // Move forward faster
-        if (keys.s) dz += moveSpeed * 6;   // Move backward faster
-        if (keys.a) dx -= moveSpeed * 6;   // Move left faster
-        if (keys.d) dx += moveSpeed * 6;   // Move right faster
+        if (keys.w) dz -= moveSpeed;   // Move forward
+        if (keys.s) dz += moveSpeed;   // Move backward
+        if (keys.a) dx -= moveSpeed;   // Move left
+        if (keys.d) dx += moveSpeed;   // Move right
 
         // Update blue sphere's position around the red sphere
         let newX = spheres[1].center.x + dx;
@@ -200,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let viewDir = ray.direction.scale(-1);
         let specular = inShadow ? 0 : Math.pow(Math.max(reflection.dot(viewDir), 0), 32);
 
+        // Final color calculation
         let colour = albedo.scale(diffuse + ambient).add(new Vec3(1, 1, 1).scale(specular * 0.5));
 
         return colour;
@@ -228,9 +228,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         for (let j = 0; j < imageHeight; j++) {
             for (let i = 0; i < imageWidth; i++) {
-                let direction = new Vec3((i / imageWidth) * 2 - 1, (j / imageHeight) * 2 - 1, -1).normalised();
+                let u = (i / (imageWidth - 1)) * 2 - 1;
+                let v = (1 - j / (imageHeight - 1)) * 2 - 1;
+
+                let direction = new Vec3(u, v, -1).normalised();
                 let ray = new Ray(origin, direction);
                 let color = rayColor(ray);
+
                 setPixel(i, j, color, ctx);
             }
         }
