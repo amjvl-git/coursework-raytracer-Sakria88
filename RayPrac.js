@@ -14,10 +14,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return new Vec3(this.x - other.x, this.y - other.y, this.z - other.z);
         }
 
-        multiply(other) {
-            return new Vec3(this.x * other.x, this.y * other.y, this.z * other.z);
-        }
-
         scale(scalar) {
             return new Vec3(this.x * scalar, this.y * scalar, this.z * scalar);
         }
@@ -33,16 +29,6 @@ document.addEventListener('DOMContentLoaded', function () {
         normalised() {
             let mag = this.magnitude();
             return mag === 0 ? new Vec3(0, 0, 0) : this.scale(1 / mag);
-        }
-
-        rotateY(angle) {
-            let cos = Math.cos(angle);
-            let sin = Math.sin(angle);
-            return new Vec3(
-                this.x * cos - this.z * sin,
-                this.y,
-                this.x * sin + this.z * cos
-            );
         }
     }
 
@@ -108,14 +94,61 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const spheres = [
         new Sphere(new Vec3(0, 0, -1), 0.3, new Vec3(1, 0, 0)),   // Red sphere (stationary)
-        new Sphere(new Vec3(0.5, 0.2, -1), 0.15, new Vec3(0, 0, 1)), // Blue sphere (rotating)
+        new Sphere(new Vec3(0.5, 0.2, -1), 0.15, new Vec3(0, 0, 1)), // Blue sphere (movable)
         new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0)) // Green ground
     ];
 
     // Global light direction
     let lightDirection = new Vec3(-1.1, -1.3, -1.5).normalised();
     let negLightDirection = new Vec3(-lightDirection.x, -lightDirection.y, -lightDirection.z);
-    let angle = 0;
+
+    // Movement variables
+    let moveSpeed = 0.1;
+    let keys = { w: false, a: false, s: false, d: false };
+
+    // Handle keyboard inputs
+    window.addEventListener('keydown', (event) => {
+        if (keys.hasOwnProperty(event.key)) {
+            keys[event.key] = true;
+        }
+    });
+
+    window.addEventListener('keyup', (event) => {
+        if (keys.hasOwnProperty(event.key)) {
+            keys[event.key] = false;
+        }
+    });
+
+    function updateBlueSphere() {
+        let dx = 0;
+        let dz = 0;
+
+        if (keys.w) dz -= moveSpeed;   // Move forward
+        if (keys.s) dz += moveSpeed;   // Move backward
+        if (keys.a) dx -= moveSpeed;   // Move left
+        if (keys.d) dx += moveSpeed;   // Move right
+
+        // Update blue sphere's position around the red sphere
+        let newX = spheres[1].center.x + dx;
+        let newZ = spheres[1].center.z + dz;
+
+        // Keep blue sphere orbiting around the red sphere
+        let redCenter = spheres[0].center;
+        let distX = newX - redCenter.x;
+        let distZ = newZ - redCenter.z;
+
+        let distance = Math.sqrt(distX * distX + distZ * distZ);
+
+        // Constrain the blue sphere to move around the red sphere
+        let radius = 0.6;  // Orbit radius
+        if (distance > radius) {
+            let scale = radius / distance;
+            newX = redCenter.x + distX * scale;
+            newZ = redCenter.z + distZ * scale;
+        }
+
+        spheres[1].center = new Vec3(newX, spheres[1].center.y, newZ);
+    }
 
     function traceRay(ray) {
         let closestT = Infinity;
@@ -145,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let ambient = 0.2;
 
         // Shadow ray logic
-        let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));  // Offset to prevent self-shadowing
+        let shadowRayOrigin = castResult.position.add(castResult.normal.scale(0.001));  
         let shadowRay = new Ray(shadowRayOrigin, negLightDirection);
 
         let inShadow = false;
@@ -178,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
         data[0] = Math.floor(color.x * 255);
         data[1] = Math.floor(color.y * 255);
         data[2] = Math.floor(color.z * 255);
-        data[3] = 255;  // Alpha (fully opaque)
+        data[3] = 255;
         ctx.putImageData(imageData, x, y);
     }
 
@@ -186,26 +219,17 @@ document.addEventListener('DOMContentLoaded', function () {
         let canvas = document.getElementById("canvas");
         let ctx = canvas.getContext("2d");
 
+        updateBlueSphere();
+
         let imageWidth = canvas.width;
         let imageHeight = canvas.height;
 
         let origin = new Vec3(0, 0, 0);
 
-        // Rotate the blue sphere around the red sphere
-        angle += 0.02;  // Adjust rotation speed
-        let radius = 0.5;
-        spheres[1].center = new Vec3(
-            Math.cos(angle) * radius,
-            0.2,
-            Math.sin(angle) * radius - 1
-        );
-
         for (let j = 0; j < imageHeight; j++) {
             for (let i = 0; i < imageWidth; i++) {
                 let u = (i / (imageWidth - 1)) * 2 - 1;
                 let v = (1 - j / (imageHeight - 1)) * 2 - 1;
-
-                u *= imageWidth / imageHeight;
 
                 let direction = new Vec3(u, v, -1).normalised();
                 let ray = new Ray(origin, direction);
