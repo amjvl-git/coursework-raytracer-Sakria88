@@ -30,17 +30,6 @@ document.addEventListener('DOMContentLoaded', function () {
             let mag = this.magnitude();
             return mag === 0 ? new Vec3(0, 0, 0) : this.scale(1 / mag);
         }
-
-        // Rotation around the Y-axis
-        rotateY(angle) {
-            let cos = Math.cos(angle);
-            let sin = Math.sin(angle);
-            return new Vec3(
-                this.x * cos - this.z * sin,
-                this.y,
-                this.x * sin + this.z * cos
-            );
-        }
     }
 
     class Ray {
@@ -80,15 +69,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
-    // Initialize spheres
+    // Spheres and ground
     const spheres = [
-        new Sphere(new Vec3(0.7, 0, -1), 0.2, new Vec3(1, 0, 0)),  // Red sphere
-        new Sphere(new Vec3(-0.7, 0, -1), 0.2, new Vec3(0, 0, 1)), // Blue sphere
-        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0))  // Ground
+        new Sphere(new Vec3(0.5, 0, -1), 0.2, new Vec3(1, 0, 0)),   // Red sphere
+        new Sphere(new Vec3(-0.5, 0, -1), 0.2, new Vec3(0, 0, 1)),  // Blue sphere
+        new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0.5, 0.8, 0.5))  // Ground with a greenish tint
     ];
 
     let angle = 0;
-    let lightAngle = 0;
+    const orbitRadius = 0.5;
+    const speed = 0.05;
 
     function traceRay(ray) {
         let closestT = Infinity;
@@ -107,15 +97,18 @@ document.addEventListener('DOMContentLoaded', function () {
         let hitPoint = ray.pointAt(closestT);
         let normal = hitPoint.minus(closestSphere.center).normalised();
 
-        // Lighting
-        let lightDir = new Vec3(
-            Math.cos(lightAngle) * 1.5, 
-            -1.3, 
-            Math.sin(lightAngle) * 1.5
-        ).normalised();
+        // Light source coming from above
+        let lightDir = new Vec3(0, -1, -0.5).normalised();  // Light above and slightly offset
 
         let diffuse = Math.max(normal.dot(lightDir), 0);
-        let color = closestSphere.color.scale(diffuse).add(closestSphere.color.scale(0.2));  // Add ambient
+
+        // Shadow effect on the ground
+        let shadowIntensity = 0.5;
+        if (closestSphere === spheres[2]) {  // Ground sphere
+            diffuse *= shadowIntensity;  // Reduce brightness for shadows
+        }
+
+        let color = closestSphere.color.scale(diffuse).add(closestSphere.color.scale(0.2));  // Ambient light
 
         return color;
     }
@@ -136,28 +129,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let origin = new Vec3(0, 0, 0);
 
-        // Rotate the spheres around each other
-        let orbitRadius = 0.8;
-        let speed = 0.05;  // Increased speed
+        // Rotate the spheres around each other in the center of the canvas
+        angle += speed;
 
-        angle += speed;  // Rotate faster
-
-        // Red sphere orbits clockwise
         spheres[0].center = new Vec3(
             Math.cos(angle) * orbitRadius,
             0,
             Math.sin(angle) * orbitRadius - 1
         );
 
-        // Blue sphere orbits counter-clockwise
         spheres[1].center = new Vec3(
             Math.cos(-angle) * orbitRadius,
             0,
             Math.sin(-angle) * orbitRadius - 1
         );
-
-        // Lighting follows the rotation
-        lightAngle += speed * 0.8;  // Sync lighting speed
 
         for (let j = 0; j < height; j++) {
             for (let i = 0; i < width; i++) {
